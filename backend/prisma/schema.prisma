@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id                    String              @id @default(uuid())
+  name                  String              @unique
+  industry              String
+  hasDisclosedFramework Boolean             @default(true)
+  levelingFrameworks    LevelingFramework[]
+  levelMappings         LevelMapping[]
+  dataPoints            DataPoint[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+}
+
+model LevelingFramework {
+  id            String         @id @default(uuid())
+  companyId     String
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String
+  track         String         // e.g. IC, Management
+  levelMappings LevelMapping[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([companyId, name])
+}
+
+model NormalizedLevel {
+  id            String         @id @default(uuid())
+  name          String         @unique // e.g. Entry, Mid, Senior, Staff, Principal, Director+
+  rank          Int            @unique // to order from junior to senior
+  levelMappings LevelMapping[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model LevelMapping {
+  id                      String             @id @default(uuid())
+  companyId               String
+  company                 Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  levelingFrameworkId     String?
+  levelingFramework       LevelingFramework? @relation(fields: [levelingFrameworkId], references: [id], onDelete: Cascade)
+  sourceLevelName         String?            // e.g. L5 (disclosed)
+  sourceDesignation       String?            // e.g. Senior Software Engineer (estimated)
+  sourceYearsOfExperience Int?               // e.g. 6 (estimated)
+  normalizedLevelId       String
+  normalizedLevel         NormalizedLevel    @relation(fields: [normalizedLevelId], references: [id])
+  mappingType             String             // disclosed | estimated
+  confidenceScore         Decimal
+  dataPoints              DataPoint[]
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+}
+
+model RoleFamily {
+  id         String      @id @default(uuid())
+  name       String      @unique // e.g. Software Engineering, Product Management
+  dataPoints DataPoint[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Location {
+  id                String      @id @default(uuid())
+  city              String
+  country           String
+  costOfLivingIndex Decimal     // e.g. SF = 100.00
+  dataPoints        DataPoint[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([city, country])
+}
+
+model CompensationStructure {
+  id              String     @id @default(uuid())
+  base            Decimal    
+  bonus           Decimal    
+  equity          Decimal     // Total stock value over vesting period
+  vestingSchedule String     // e.g. "25/25/25/25"
+  signOn          Decimal    
+  refresher       Decimal    
+  currency        String     // e.g. USD, INR
+  totalComp       Decimal     // Annualized total compensation
+  dataPoint       DataPoint?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model DataPoint {
+  id                      String                @id @default(uuid())
+  companyId               String
+  company                 Company               @relation(fields: [companyId], references: [id])
+  levelMappingId          String
+  levelMapping            LevelMapping          @relation(fields: [levelMappingId], references: [id])
+  roleFamilyId            String
+  roleFamily              RoleFamily            @relation(fields: [roleFamilyId], references: [id])
+  locationId              String
+  location                Location              @relation(fields: [locationId], references: [id])
+  compensationStructureId String                @unique
+  compensationStructure   CompensationStructure @relation(fields: [compensationStructureId], references: [id], onDelete: Cascade)
+  timestamp               DateTime              @default(now())
+  verificationStatus      String                @default("PENDING")
+  userId                  String?
+  user                    User?                 @relation(fields: [userId], references: [id])
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+}
+
+model User {
+  id         String      @id @default(uuid())
+  email      String      @unique
+  role       String      @default("USER")
+  dataPoints DataPoint[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
